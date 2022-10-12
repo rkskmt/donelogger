@@ -10,8 +10,6 @@ class DoneloggerStreamHandler(logging.StreamHandler):
     def emit(self, record: logging.LogRecord) -> None:
         msg = str(record.__dict__.get("msg", "")) # msg maight be error object
         self.terminator = '\n'
-        self.isBenchmarked = True
-
         return super().emit(record)
 
 class DoneloggerFormatter(logging.Formatter):
@@ -19,11 +17,10 @@ class DoneloggerFormatter(logging.Formatter):
     lastTime = time.time()
     isBenchmarked = False
     isJustBihindBenchmarked = False
-    startMsg = "[Start]"
-    doneMsg = "[Done]"
     start_pattern = re.compile("^\[[S|s]tart(:?.*)\]")
     done_pattern = re.compile("^\[[D|d]one(:?.*)\]")
     tag2time = dict()
+    default_job_name = "Job"
 
     def format(self, record: logging.LogRecord) -> str:
 
@@ -34,23 +31,23 @@ class DoneloggerFormatter(logging.Formatter):
         
         start = self.start_pattern.match(msg)
         if start:
-            tag = start.groups()[0][1:] if len(start.groups()[0]) != 0 else "job"
+            tag = start.groups()[0][1:] if len(start.groups()[0]) != 0 else self.default_job_name
             self.tag2time[tag] = time.perf_counter()
             self.lastTime = record.__dict__["created"]
-            record.__dict__["msg"] = "S|" + msg
+            record.__dict__["msg"] =  msg[len(start.group()):].strip() + f" [Starting {tag}]"
             ret = super().format(record)
 
         else:
             done = self.done_pattern.match(msg)
             if done:
-                tag = done.groups()[0][1:] if len(done.groups()[0]) != 0 else "job"
+                tag = done.groups()[0][1:] if len(done.groups()[0]) != 0 else self.default_job_name
                 elapsed = time.perf_counter() - self.tag2time[tag] if tag in self.tag2time else -1.0
-                ret = "      [{}] is done! ({:.4}s)".format(tag, elapsed) if tag in self.tag2time else "*LOG ERROR* ({} is not started[Done!]".format(tag)
-                record.__dict__["msg"] = "D|" + ret
+                ret = "{} **[{}'s done in {:.3}s]**".format(msg[len(done.group()):].strip(), tag, elapsed) if tag in self.tag2time else "*LOG ERROR* ({} is not started)".format(tag)
+                record.__dict__["msg"] = ret
                 ret = super().format(record)
 
             else:
-                record.__dict__["msg"] = " |" + msg
+                record.__dict__["msg"] = msg
                 ret = super().format(record)
 
 
@@ -92,7 +89,7 @@ if __name__ == "__main__":
     logger.warning("warn")
     logger.info("[Start] comment")
     time.sleep(1)
-    logger.info("[Done] done message is ignored")
+    logger.info("[Done] done message")
     logger.info("[Start:tag1]")
     logger.info("normal msg1")
     time.sleep(1)
