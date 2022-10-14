@@ -34,7 +34,7 @@ class DoneloggerFormatter(logging.Formatter):
             tag = start.groups()[0][1:] if len(start.groups()[0]) != 0 else self.default_job_name
             self.tag2time[tag] = time.perf_counter()
             self.lastTime = record.__dict__["created"]
-            record.__dict__["msg"] =  msg[len(start.group()):].strip() + f" [Starting {tag}]"
+            record.__dict__["msg"] =  "++[Go {}] {}".format(tag, msg[len(start.group()):].strip())
             ret = super().format(record)
 
         else:
@@ -42,7 +42,7 @@ class DoneloggerFormatter(logging.Formatter):
             if done:
                 tag = done.groups()[0][1:] if len(done.groups()[0]) != 0 else self.default_job_name
                 elapsed = time.perf_counter() - self.tag2time[tag] if tag in self.tag2time else -1.0
-                ret = "{} **[{}'s done in {:.3}s]**".format(msg[len(done.group()):].strip(), tag, elapsed) if tag in self.tag2time else "*LOG ERROR* ({} is not started)".format(tag)
+                ret = "--[Done {}({:.3}s)] {}".format(tag, elapsed, msg[len(done.group()):].strip()) if tag in self.tag2time else "*LOG ERROR* ({} is not started)".format(tag)
                 record.__dict__["msg"] = ret
                 ret = super().format(record)
 
@@ -53,24 +53,27 @@ class DoneloggerFormatter(logging.Formatter):
 
         return ret
 
-def getLogger(name: str = __name__, logfile: str = None, logLevel: int = None) -> logging.Logger:
+def getLogger(name: str = __name__, logLevel: int = logging.INFO, logfile: str = None, datefmt:str = '%(asctime)s|%(levelname)s|%(message)s', _FormatStyle:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
 
-    isLoggerAlreadyExisted = False
-    if name in logging.Logger.manager.loggerDict or name == "root": # loggerDict don't have root logger
-        isLoggerAlreadyExisted = True
-    elif logLevel == None:
-        logLevel = logging.INFO # our default
+    if name == "root":# note:loggerDict don't have root logger
+        return logging.getLogger(name)
 
     logger = logging.getLogger(name)
-    if logLevel:
-        logger.setLevel(logLevel)
+    logger.setLevel(logLevel)
 
-    if not isLoggerAlreadyExisted:
-        dqsh = DoneloggerStreamHandler(stream=sys.stdout) # setting stdout is needed for subprocess
-        dqsh.setLevel(logLevel)
-        dqlf = DoneloggerFormatter('%(asctime)s|%(levelname)s|%(message)s','%d/%m/%Y %H:%M:%S')
-        dqsh.setFormatter(dqlf)
-        logger.addHandler(dqsh)
+    if name in logging.Logger.manager.loggerDict: 
+        for handler in logger.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                logger.removeHandler(handler)
+            if isinstance(handler, logging.FileHandler):
+                if logfile is not None:
+                    logger.removeHandler(handler)
+
+
+        dlsh = DoneloggerStreamHandler(stream=sys.stdout) # setting stdout is needed for subprocess
+        dllf = DoneloggerFormatter(datefmt, _FormatStyle)
+        dlsh.setFormatter(dllf)
+        logger.addHandler(dlsh)
 
         if logfile is not None:
             fh = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=2, encoding='utf-8')
@@ -84,8 +87,9 @@ def getLogger(name: str = __name__, logfile: str = None, logLevel: int = None) -
 if __name__ == "__main__":
 
 
-    logger = getLogger(__name__)
+    logger = getLogger(logfile="log.log")
     logger.info("test")
+    logger = getLogger()
     logger.warning("warn")
     logger.info("[Start] comment")
     time.sleep(1)

@@ -1,0 +1,32 @@
+2022-10-14 18:58:11,668 INFO donelogger.py __main__ <module> test
+2022-10-14 18:58:11,669 WARNING donelogger.py __main__ <module> warn
+2022-10-14 18:58:11,669 INFO donelogger.py __main__ <module> [Start] comment
+2022-10-14 18:58:12,672 INFO donelogger.py __main__ <module> [Done] done message
+2022-10-14 18:58:12,672 INFO donelogger.py __main__ <module> [Start:tag1]
+2022-10-14 18:58:12,672 INFO donelogger.py __main__ <module> normal msg1
+2022-10-14 18:58:13,686 INFO donelogger.py __main__ <module> [Done:tag1] 
+2022-10-14 18:58:13,688 INFO donelogger.py __main__ <module> [Done:tag2] tag2 is not defined
+2022-10-14 18:58:13,691 INFO donelogger.py __main__ <module> normal msg2
+2022-10-14 18:58:13,693 INFO donelogger.py __main__ <module> normal msg3
+2022-10-14 18:58:13,695 INFO donelogger.py __main__ <module> [Done:tag1] 
+2022-10-14 18:58:13,696 INFO donelogger.py __main__ <module> normal msg4
+2022-10-14 18:58:13,698 INFO donelogger.py __main__ <module> [Start] onece
+2022-10-14 18:58:13,699 INFO donelogger.py __main__ <module> [Start] twice
+2022-10-14 18:58:14,708 INFO donelogger.py __main__ <module> [Done]
+2022-10-14 18:58:14,710 INFO donelogger.py __main__ <module> [Done] done nothing 
+2022-10-14 18:58:52,187 INFO donelogger.py __main__ <module> test
+2022-10-14 18:58:52,188 WARNING donelogger.py __main__ <module> warn
+2022-10-14 18:58:52,188 INFO donelogger.py __main__ <module> [Start] comment
+2022-10-14 18:58:53,196 INFO donelogger.py __main__ <module> [Done] done message
+2022-10-14 18:58:53,197 INFO donelogger.py __main__ <module> [Start:tag1]
+2022-10-14 18:58:53,199 INFO donelogger.py __main__ <module> normal msg1
+2022-10-14 18:58:54,205 INFO donelogger.py __main__ <module> [Done:tag1] 
+2022-10-14 18:58:54,206 INFO donelogger.py __main__ <module> [Done:tag2] tag2 is not defined
+2022-10-14 18:58:54,210 INFO donelogger.py __main__ <module> normal msg2
+2022-10-14 18:58:54,211 INFO donelogger.py __main__ <module> normal msg3
+2022-10-14 18:58:54,212 INFO donelogger.py __main__ <module> [Done:tag1] 
+2022-10-14 18:58:54,213 INFO donelogger.py __main__ <module> normal msg4
+2022-10-14 18:58:54,214 INFO donelogger.py __main__ <module> [Start] onece
+2022-10-14 18:58:54,215 INFO donelogger.py __main__ <module> [Start] twice
+2022-10-14 18:58:55,218 INFO donelogger.py __main__ <module> [Done]
+2022-10-14 18:58:55,218 INFO donelogger.py __main__ <module> [Done] done nothing 
