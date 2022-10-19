@@ -53,7 +53,7 @@ class DoneloggerFormatter(logging.Formatter):
 
         return ret
 
-def getLogger(name: str = __name__, logLevel: int = logging.INFO, logfile: str = None, datefmt:str = '%(asctime)s|%(levelname)s|%(message)s', _FormatStyle:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
+def getLogger(name: str = "doneLogger", logLevel: int = logging.INFO, logfile: str = None, datefmt:str = '%(asctime)s|%(levelname)s|%(message)s', _FormatStyle:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
 
     if name == "root":# note:loggerDict don't have root logger
         return logging.getLogger(name)
@@ -61,19 +61,22 @@ def getLogger(name: str = __name__, logLevel: int = logging.INFO, logfile: str =
     logger = logging.getLogger(name)
     logger.setLevel(logLevel)
 
-    if name in logging.Logger.manager.loggerDict: 
+    if name in logging.Logger.manager.loggerDict:
+        dlsh = None
         for handler in logger.handlers:
             if isinstance(handler, logging.StreamHandler):
-                logger.removeHandler(handler)
-            if isinstance(handler, logging.FileHandler):
-                if logfile is not None:
+                dlsh = handler
+                dllf = DoneloggerFormatter(datefmt, _FormatStyle)
+                dlsh.setFormatter(dllf)
+            if isinstance(handler, logging.FileHandler): # if logfile is already set
+                if logfile is not None: #new logfile will set in below.
                     logger.removeHandler(handler)
+                else: # if logfile was already set then do nothing even if logfile argument is none in this time.
+                    pass
 
-
-        dlsh = DoneloggerStreamHandler(stream=sys.stdout) # setting stdout is needed for subprocess
-        dllf = DoneloggerFormatter(datefmt, _FormatStyle)
-        dlsh.setFormatter(dllf)
-        logger.addHandler(dlsh)
+        if not dlsh:
+            dlsh = DoneloggerStreamHandler(stream=sys.stdout) # setting stdout is needed for subprocess
+            logger.addHandler(dlsh)
 
         if logfile is not None:
             fh = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=2, encoding='utf-8')
@@ -88,6 +91,7 @@ if __name__ == "__main__":
 
 
     logger = getLogger(logfile="log.log")
+    print(logging.Logger.manager.loggerDict)
     logger.info("test")
     logger = getLogger()
     logger.warning("warn")
