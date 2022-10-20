@@ -61,29 +61,28 @@ def getLogger(name: str = "doneLogger", logLevel: int = logging.INFO, logfile: s
     logger = logging.getLogger(name)
     logger.setLevel(logLevel)
 
-    if name in logging.Logger.manager.loggerDict:
-        dlsh = None
-        for handler in logger.handlers:
-            if isinstance(handler, logging.StreamHandler):
-                dlsh = handler
-                dllf = DoneloggerFormatter(datefmt, _FormatStyle)
-                dlsh.setFormatter(dllf)
-            if isinstance(handler, logging.FileHandler): # if logfile is already set
-                if logfile is not None: #new logfile will set in below.
-                    logger.removeHandler(handler)
-                else: # if logfile was already set then do nothing even if logfile argument is none in this time.
-                    pass
+    dlsh = None
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            dlsh = handler
+        if isinstance(handler, logging.FileHandler): # if logfile is already set
+            if logfile is not None: #new logfile will set in below.
+                logger.removeHandler(handler)
+            else: # if logfile was already set then do nothing even if logfile argument is none in this time.
+                pass
 
-        if not dlsh:
-            dlsh = DoneloggerStreamHandler(stream=sys.stdout) # setting stdout is needed for subprocess
-            logger.addHandler(dlsh)
+    if not dlsh:
+        dlsh = DoneloggerStreamHandler(stream=sys.stdout) # setting stdout is needed for subprocess
+    dllf = DoneloggerFormatter(datefmt, _FormatStyle)
+    dlsh.setFormatter(dllf)
+    logger.addHandler(dlsh)
 
-        if logfile is not None:
-            fh = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=2, encoding='utf-8')
-            fh.setLevel(logging.DEBUG)
-            fh_formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s %(name)s %(funcName)s %(message)s')
-            fh.setFormatter(fh_formatter)
-            logger.addHandler(fh)
+    if logfile is not None:
+        fh = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=2, encoding='utf-8')
+        fh.setLevel(logging.DEBUG)
+        fh_formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s %(name)s %(funcName)s %(message)s')
+        fh.setFormatter(fh_formatter)
+        logger.addHandler(fh)
 
     return logger
 
@@ -92,7 +91,6 @@ if __name__ == "__main__":
 
     logger = getLogger(logfile="log.log")
     print(logging.Logger.manager.loggerDict)
-    logger.info("test")
     logger = getLogger()
     logger.warning("warn")
     logger.info("[Start] comment")
