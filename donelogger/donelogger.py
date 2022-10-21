@@ -17,7 +17,7 @@ class DoneloggerFormatter(logging.Formatter):
     lastTime = time.time()
     isBenchmarked = False
     isJustBihindBenchmarked = False
-    start_pattern = re.compile("^\[[S|s]tart(:?.*)\]")
+    start_pattern = re.compile("^\[([S|s]tart|[G|g]o)(:?.*)\]")
     done_pattern = re.compile("^\[[D|d]one(:?.*)\]")
     tag2time = dict()
     default_job_name = "Job"
@@ -31,18 +31,20 @@ class DoneloggerFormatter(logging.Formatter):
         
         start = self.start_pattern.match(msg)
         if start:
-            tag = start.groups()[0][1:] if len(start.groups()[0]) != 0 else self.default_job_name
+            tag = start.groups()[1][1:] if len(start.groups()[1]) != 0 else self.default_job_name
             self.tag2time[tag] = time.perf_counter()
             self.lastTime = record.__dict__["created"]
-            record.__dict__["msg"] =  "++[Go {}] {}".format(tag, msg[len(start.group()):].strip())
+            record.__dict__["msg"] =  "+[Go {}] {}".format(tag, msg[len(start.group()):].strip())
             ret = super().format(record)
 
         else:
             done = self.done_pattern.match(msg)
             if done:
                 tag = done.groups()[0][1:] if len(done.groups()[0]) != 0 else self.default_job_name
-                elapsed = time.perf_counter() - self.tag2time[tag] if tag in self.tag2time else -1.0
-                ret = "--[Done {}({:.3}s)] {}".format(tag, elapsed, msg[len(done.group()):].strip()) if tag in self.tag2time else "*LOG ERROR* ({} is not started)".format(tag)
+                dt = time.perf_counter() - self.tag2time[tag] if tag in self.tag2time else -1.0
+                m, s = divmod(dt, 60)
+                elapsed = f"{m:.0f}m{s:.3}s" if m > 0 else f"{s:.3}s"
+                ret = "-[Done {}({})] {}".format(tag, elapsed, msg[len(done.group()):].strip()) if tag in self.tag2time else "*LOG ERROR* ({} is not started)".format(tag)
                 record.__dict__["msg"] = ret
                 ret = super().format(record)
 
@@ -105,11 +107,11 @@ if __name__ == "__main__":
     logger.info("normal msg3")
     logger.info("[Done:tag1] ")
     logger.info("normal msg4")
-    logger.info("[Start] onece")
-    logger.info("[Start] twice")
+    logger.info("[Go:tag2] Go")
+    logger.info("[Start] Start")
     time.sleep(1)
     logger.info("[Done]")
-    logger.info("[Done] done nothing ")
+    logger.info("[Done:tag2]")
 
     logger2 = getLogger("root", "log.log", logging.DEBUG)
     logger2.info("[Start] logger2 do something")
