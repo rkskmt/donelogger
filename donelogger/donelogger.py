@@ -17,8 +17,8 @@ class DoneloggerFormatter(logging.Formatter):
     lastTime = time.time()
     isBenchmarked = False
     isJustBihindBenchmarked = False
-    start_pattern = re.compile("^\[([S|s]tart|[G|g]o)(:?.*)\]")
-    done_pattern = re.compile("^\[[D|d]one(:?.*)\]")
+    start_pattern = re.compile("^\[([S|s]tart|[G|g]o)(:?.*?)\]")
+    done_pattern = re.compile("^\[[D|d]one(:?.*?)\]")
     tag2time = dict()
     default_job_name = "Job"
 
@@ -31,7 +31,7 @@ class DoneloggerFormatter(logging.Formatter):
         
         start = self.start_pattern.match(msg)
         if start:
-            tag = start.groups()[1][1:] if len(start.groups()[1]) != 0 else self.default_job_name
+            tag = start.group(2)[1:] if len(start.group(2)) != 0 else self.default_job_name
             self.tag2time[tag] = time.perf_counter()
             self.lastTime = record.__dict__["created"]
             record.__dict__["msg"] =  "+[Go {}] {}".format(tag, msg[len(start.group()):].strip())
@@ -44,7 +44,7 @@ class DoneloggerFormatter(logging.Formatter):
                 dt = time.perf_counter() - self.tag2time[tag] if tag in self.tag2time else -1.0
                 m, s = divmod(dt, 60)
                 elapsed = f"{m:.0f}m{s:.3}s" if m > 0 else f"{s:.3}s"
-                ret = "-[Done {}({})] {}".format(tag, elapsed, msg[len(done.group()):].strip()) if tag in self.tag2time else "*LOG ERROR* ({} is not started)".format(tag)
+                ret = "-[Done {}({})] {}".format(tag, elapsed, msg[len(done.group()):].strip()) if tag in self.tag2time else f"*LOG ERROR* ({tag} is not started) {self.tag2time}"
                 record.__dict__["msg"] = ret
                 ret = super().format(record)
 
@@ -94,6 +94,21 @@ if __name__ == "__main__":
     logger = getLogger(logfile="log.log")
     print(logging.Logger.manager.loggerDict)
     logger = getLogger()
+    logger.info("[done] comment")
+    logger.info("[Go:log] comment")
+    logger.info("[Go:test] comment]") # last ]  should not be matched
+    
+    logger.info("[done:test] comment")
+    logger.info(f'[Done:split]')
+    logger.info(f'^^^ picked frames')
+
+    logger.info("[Go] comment")
+    
+    logger.info("[done] comment")
+    
+    logger.info("[done:log] comment")
+    logger.info("[done:log] comment")
+    
     logger.warning("warn")
     logger.info("[Start] comment")
     time.sleep(1)
