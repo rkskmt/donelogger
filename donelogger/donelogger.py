@@ -8,9 +8,11 @@ import re
 class DoneloggerStreamHandler(logging.StreamHandler):
 
     def emit(self, record: logging.LogRecord) -> None:
-        msg = str(record.__dict__.get("msg", "")) # msg maight be error object
+        msg = str(record.__dict__.get("msg", ""))  # msg might be an error object
         self.terminator = '\n'
-        return super().emit(record)
+        super().emit(record)
+        self.flush()  # Add this line to flush after each log message    
+    
 
 class DoneloggerFormatter(logging.Formatter):
 
@@ -57,10 +59,12 @@ class DoneloggerFormatter(logging.Formatter):
 
 def getLogger(name: str = "doneLogger", logLevel: int = logging.INFO, logfile: str = None, datefmt:str = '%(asctime)s|%(levelname)s|%(message)s', _FormatStyle:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
 
-    if name == "root":# note:loggerDict don't have root logger
-        return logging.getLogger(name)
-
-    logger = logging.getLogger(name)
+#    if name == "root":# note:loggerDict don't have root logger
+#        return logging.getLogger(name)
+    if name == "root":
+        logger = logging.getLogger()
+    else:
+        logger = logging.getLogger(name)
     logger.setLevel(logLevel)
 
     dlsh = None
