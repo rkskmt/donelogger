@@ -57,45 +57,61 @@ class DoneloggerFormatter(logging.Formatter):
 
         return ret
 
-def getLogger(name: str = "doneLogger", logLevel: int = logging.INFO, logfile: str = None, datefmt:str = '%(asctime)s|%(levelname)s|%(message)s', _FormatStyle:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
+class LoggerManager:
+    _instance = None
+    _initialized_logger_names = set()
+    _initialized_logger_name2instance = {}
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
-#    if name == "root":# note:loggerDict don't have root logger
-#        return logging.getLogger(name)
-    if name == "root":
-        logger = logging.getLogger()
-    else:
-        logger = logging.getLogger(name)
-    logger.setLevel(logLevel)
+    def get_logger(self, name: str = "doneLogger", logLevel: int = logging.INFO, logfile: str = None, datefmt:str = '%(asctime)s|%(levelname)s|%(message)s', _FormatStyle:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
 
-    dlsh = None
-    for handler in logger.handlers:
-        if isinstance(handler, logging.StreamHandler):
-            dlsh = handler
-        if isinstance(handler, logging.FileHandler): # if logfile is already set
-            if logfile is not None: #new logfile will set in below.
-                logger.removeHandler(handler)
-            else: # if logfile was already set then do nothing even if logfile argument is none in this time.
-                pass
+        if name in self._initialized_logger_names:
+            return self._initialized_logger_name2instance[name]
 
-    if not dlsh:
-        dlsh = DoneloggerStreamHandler(stream=sys.stdout) # setting stdout is needed for subprocess
-    dllf = DoneloggerFormatter(datefmt, _FormatStyle)
-    dlsh.setFormatter(dllf)
-    logger.addHandler(dlsh)
+        if name == "root":
+            logger = logging.getLogger()
+        else:
+            logger = logging.getLogger(name)
 
-    if logfile is not None:
+
+        logger.setLevel(logLevel)
+        logger.propagate = False
+
+        # ハンドラーの設定
+        self._setup_stream_handler(logger, datefmt, _FormatStyle)
+        if logfile:
+            self._setup_file_handler(logger, logfile)
+
+        self._initialized_logger_names.add(name)
+        self._initialized_logger_name2instance[name] = logger
+        return logger
+
+    def _setup_stream_handler(self, logger, datefmt, _FormatStyle):
+        dlsh = DoneloggerStreamHandler(stream=sys.stdout)
+        dllf = DoneloggerFormatter(datefmt, _FormatStyle)
+        dlsh.setFormatter(dllf)
+        logger.addHandler(dlsh)
+
+    def _setup_file_handler(self, logger, logfile):
         fh = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=2, encoding='utf-8')
         fh.setLevel(logging.DEBUG)
         fh_formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s %(name)s %(funcName)s %(message)s')
         fh.setFormatter(fh_formatter)
         logger.addHandler(fh)
 
-    return logger
+def getLogger(*args, **kwargs):
+    return LoggerManager.get_instance().get_logger(*args, **kwargs)
+
 
 if __name__ == "__main__":
 
 
-    logger = getLogger(logfile="log.log")
+    logger = getLogger()
     print(logging.Logger.manager.loggerDict)
     logger = getLogger()
     logger.info("[done] comment")
@@ -132,11 +148,4 @@ if __name__ == "__main__":
     logger.info("[Done]")
     logger.info("[Done:tag2]")
 
-    logger2 = getLogger("root", "log.log", logging.DEBUG)
-    logger2.info("[Start] logger2 do something")
-    time.sleep(1)
-    logger2.info("[Done] done message")
-
-    loggar3 = getLogger(__name__)
-    logger.info("normal msg by logger3")
 
