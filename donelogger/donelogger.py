@@ -18,9 +18,9 @@ class DoneloggerFormatter(logging.Formatter):
 
     lastTime = time.time()
     isBenchmarked = False
-    isJustBihindBenchmarked = False
-    start_pattern = re.compile("^\[([S|s]tart|[G|g]o)(:?.*?)\]")
-    done_pattern = re.compile("^\[[D|d]one(:?.*?)\]")
+    isJustBehindBenchmarked = False
+    start_pattern = re.compile("^\[([Ss]tart|[Gg]o)(:?.*?)\]")
+    done_pattern = re.compile("^\[[Dd]one(:?.*?)\]")
     tag2time = dict()
     default_job_name = "Job"
 
@@ -29,7 +29,7 @@ class DoneloggerFormatter(logging.Formatter):
         if record.__dict__["levelname"] != "INFO":
             return super().format(record)
 
-        msg = str(record.__dict__.get("msg", "")) # msg maight be error object
+        msg = str(record.__dict__.get("msg", "")) # msg might be error object
         
         start = self.start_pattern.match(msg)
         if start:
@@ -68,7 +68,7 @@ class LoggerManager:
             cls._instance = cls()
         return cls._instance
 
-    def get_logger(self, name: str = "doneLogger", logLevel: int = logging.INFO, logfile: str = None, datefmt:str = '%(asctime)s|%(levelname)s|%(message)s', _FormatStyle:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
+    def get_logger(self, name: str = "doneLogger", logLevel: int = logging.INFO, logfile: str = None, fmt:str = '%(asctime)s|%(levelname)s|%(message)s', datefmt:str ='%d/%m/%Y %H:%M:%S') -> logging.Logger:
 
         if name in self._initialized_logger_names:
             return self._initialized_logger_name2instance[name]
@@ -83,7 +83,7 @@ class LoggerManager:
         logger.propagate = False
 
         # ハンドラーの設定
-        self._setup_stream_handler(logger, datefmt, _FormatStyle)
+        self._setup_stream_handler(logger, fmt, datefmt)
         if logfile:
             self._setup_file_handler(logger, logfile)
 
@@ -91,9 +91,9 @@ class LoggerManager:
         self._initialized_logger_name2instance[name] = logger
         return logger
 
-    def _setup_stream_handler(self, logger, datefmt, _FormatStyle):
+    def _setup_stream_handler(self, logger, fmt, datefmt):
         dlsh = DoneloggerStreamHandler(stream=sys.stdout)
-        dllf = DoneloggerFormatter(datefmt, _FormatStyle)
+        dllf = DoneloggerFormatter(fmt, datefmt)
         dlsh.setFormatter(dllf)
         logger.addHandler(dlsh)
 
