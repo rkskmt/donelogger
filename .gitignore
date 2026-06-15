@@ -4,5 +4,7 @@ logs/
 __pycache__/
 *.pyc
 *.egg-info/
+build/
+dist/
 .pytest_cache/
 assets/_frames/
