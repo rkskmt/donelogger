@@ -1,19 +1,51 @@
 # donelogger
 
-**Stop writing `time.time()` bookkeeping. Just log `[Start]` and `[Done]`.**
+**Time long-running steps with two ordinary log lines.**
 
-donelogger is a tiny drop-in wrapper around Python's standard `logging` that
-**automatically measures and prints the elapsed time** between `[Start]` and
-`[Done]` markers in your log messages — no timer variables, no `f"{...:.3f}s"`
-math, no extra dependencies.
+![donelogger in action](assets/demo.gif)
+
+Write `[Start]` when work begins and `[Done]` when it ends. donelogger fills
+the elapsed time into the log line for you.
 
 ```python
-logger.info("[Start:train] Training model...")
+from donelogger import getLogger
+
+logger = getLogger()
+
+logger.info("[Start] Training model...")
 train()
-logger.info("[Done:train] Finished")
-# 15/06/2026 12:25:04|INFO|+[Go train] Training model...
-# 15/06/2026 12:25:04|INFO|-[Done train(1m23.40s)] Finished
+logger.info("[Done] Finished")
+# -> +[Go Job] Training model...
+# -> -[Done Job(1m23.40s)] Finished     ← elapsed time, measured for you
 ```
+
+That's the whole idea: no `time.perf_counter()` variables, no manual
+subtraction, no `f"{...:.3f}s"` formatting scattered through your code.
+
+If you've ever written this:
+
+```python
+t0 = time.perf_counter()
+logger.info("Loading dataset...")
+load_dataset()
+logger.info(f"Finished loading in {time.perf_counter() - t0:.3f}s")
+```
+
+you can write this instead:
+
+```python
+logger.info("[Start] Loading dataset...")
+load_dataset()
+logger.info("[Done] Finished loading")
+# -> -[Done Job(2.413s)] Finished loading
+```
+
+The timing is just part of the log. Your call sites stay plain
+`logger.info(...)`, and everything that is not a marker remains a normal log
+message.
+
+No tag needed for the basic case. When you want to time nested or overlapping
+steps, add an optional `:tag` (`[Start:train]` ... `[Done:train]`).
 
 > Battle-tested: donelogger runs in production internal tooling, where knowing
 > "how long did each stage take?" across a long pipeline matters every day.
@@ -22,43 +54,89 @@ logger.info("[Done:train] Finished")
 
 ## Why donelogger?
 
-Timing a block of work the usual way means scattering bookkeeping all over your
-code:
+### 1. Make timing cheap enough to use everywhere
+
+When timing is annoying, you only add it after something gets slow. donelogger
+makes it cheap enough to leave timing breadcrumbs throughout a script, CLI,
+batch job, ML run, or data pipeline:
 
 ```python
-# Before — manual, repetitive, easy to get wrong
+logger.info("[Start] Download files")
+download_files()
+logger.info("[Done] Downloaded")
+
+logger.info("[Start] Parse records")
+parse_records()
+logger.info("[Done] Parsed")
+
+logger.info("[Start] Write output")
+write_output()
+logger.info("[Done] Wrote output")
+```
+
+You get readable progress logs while the job runs, and elapsed times once each
+step finishes.
+
+### 2. Stop subtracting timestamps by hand
+
+The usual timing pattern is repetitive and easy to get slightly wrong:
+
+```python
 t0 = time.perf_counter()
 logger.info("Loading dataset...")
 load_dataset()
 logger.info(f"Finished loading in {time.perf_counter() - t0:.3f}s")
-
-t1 = time.perf_counter()              # another stopwatch variable to track
-logger.info("Training model...")
-train()
-logger.info(f"Training done in {time.perf_counter() - t1:.3f}s")
 ```
 
-With donelogger the timing *is* the log line — the stopwatch is implicit:
+donelogger keeps the stopwatch attached to the log line instead of your local
+variables:
 
 ```python
-# After — the log reads naturally and the timing is automatic
-logger.info("[Start:load]  Loading dataset...")
+logger.info("[Start] Loading dataset...")
 load_dataset()
-logger.info("[Done:load]   Finished loading")
-
-logger.info("[Start:train] Training model...")
-train()
-logger.info("[Done:train]  Training done")
+logger.info("[Done] Finished loading")
 ```
 
-No `t0`/`t1` variables to mismatch, no per-call formatting to keep consistent,
-and the elapsed time is rendered in a human-friendly unit automatically.
+This really pays off once timings are **nested**. You often want an inner step's
+time *and* the whole job's time. By the time the job ends, the start line has
+scrolled far up the log; squinting at two timestamps to subtract them is exactly
+the chore donelogger removes. (See [nested timing](#named-tags-time-nested-or-overlapping-work).)
+
+### 3. Skip the `logging` setup boilerplate
+
+Getting plain `logging` to print the way you want takes a handler, a formatter,
+a level, and a few lines of wiring before a single line shows up:
+
+```python
+# Before — standard logging needs setup before it's usable
+import logging, sys
+logger = logging.getLogger("myapp")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(asctime)s|%(levelname)s|%(message)s",
+                                        "%d/%m/%Y %H:%M:%S"))
+logger.addHandler(handler)
+```
+
+`getLogger()` does all of that for you — and hands back a **real
+`logging.Logger`**, so levels, file output, and custom formats keep working
+exactly as you'd expect:
+
+```python
+# After — configured and ready in one line
+from donelogger import getLogger
+logger = getLogger()                      # console-ready, sensible defaults
+logger = getLogger(logfile="app.log")     # ...also writes to a rotating file
+```
+
+Nothing proprietary to learn: it's `logging` underneath, just without the setup.
 
 ## Features
 
-- **Zero-boilerplate timing** — wrap work in `[Start:tag]` / `[Done:tag]` and get the elapsed time for free.
+- **Zero-boilerplate timing** — wrap work in `[Start]` / `[Done]` and get the elapsed time for free; no tag required.
+- **One-line setup** — `getLogger()` returns a ready-to-use logger (handler, formatter, and level already wired) — no `logging` boilerplate.
 - **Reads like normal logs** — markers are just text at the front of your message; nothing new to learn.
-- **Named tags** — time overlapping or nested stages independently (`download`, `parse`, `train`, …).
+- **Named tags** — time overlapping or nested stages independently (`total`, `load`, `train`, …).
 - **Cross-module** — start a timer in one file and finish it in another, as long as they share a logger name.
 - **Human-friendly durations** — adaptive units from microseconds to hours (`300us`, `512.0ms`, `1.003s`, `1m15.40s`, `1h15m00s`), or force fixed seconds.
 - **Drop-in `logging`** — `getLogger()` returns a real `logging.Logger`; all the usual `.info()` / `.warning()` / `.error()` work unchanged.
@@ -87,12 +165,14 @@ from donelogger import getLogger
 
 logger = getLogger()
 
-logger.info("[Start:data_load] Loading dataset...")
+# The basics: bare [Start] / [Done], no tag.
+logger.info("[Start] Loading dataset...")
 time.sleep(2)
-logger.info("[Done:data_load] Finished loading")
-# -> -[Done data_load(2.001s)] Finished loading
+logger.info("[Done] Finished loading")
+# -> -[Done Job(2.001s)] Finished loading
 
-logger.info("[Go:train] Training model")   # [Go] is an alias for [Start]
+# Need to time several things at once? Add an optional tag.
+logger.info("[Start:train] Training model")
 time.sleep(1)
 logger.info("[Done:train]")
 # -> -[Done train(1.002s)]
@@ -111,16 +191,31 @@ logger.info("[Done] Complete")
 # -> -[Done Job(512.0ms)] Complete
 ```
 
-### Named tags for overlapping / nested work
+### Named tags: time nested or overlapping work
 
-Use named tags to track multiple timers at once. They can overlap or nest freely:
+Bare `[Start]` / `[Done]` track one thing at a time. Add a `:tag` to run several
+timers at once — ideal when you want an inner step's time **and** the overall
+time, without scrolling back up the log to subtract timestamps by hand:
+
+```python
+logger.info("[Start:total] Pipeline starting")
+logger.info("[Start:load]  Loading dataset...")
+load_dataset()
+logger.info("[Done:load]   Data ready")          # inner step time
+train()
+logger.info("[Done:total]  Pipeline finished")   # whole-pipeline time
+# -> -[Done load(2.001s)] Data ready
+# -> -[Done total(1m25.40s)] Pipeline finished
+```
+
+Timers are independent, so tags can nest (as above) or overlap freely without
+clobbering each other:
 
 ```python
 logger.info("[Start:download] Downloading files")
 logger.info("[Start:parse]    Parsing config")
-# ... work ...
-logger.info("[Done:parse]    Config ready")    # parse timer stops
-logger.info("[Done:download] Files saved")     # download timer stops
+logger.info("[Done:parse]     Config ready")     # parse stops first
+logger.info("[Done:download]  Files saved")      # download stops later
 ```
 
 ### Cross-module timing
