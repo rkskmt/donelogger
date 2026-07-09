@@ -6,7 +6,7 @@
 
 **Time long-running steps with two ordinary log lines.**
 
-![donelogger in action](assets/demo.gif)
+![donelogger in action](https://raw.githubusercontent.com/rkskmt/donelogger/main/assets/demo.gif)
 
 Write `[Start]` when work begins and `[Done]` when it ends. donelogger fills
 the elapsed time into the log line for you.

@@ -38,7 +38,7 @@ CW = FONT.getlength("M")        # monospace cell width
 # Canvas sized to the widest line we render.
 COLS = 60
 W = int(PAD_X * 2 + CW * COLS)
-H = PAD_TOP + LINE_H * 5 + 24
+H = PAD_TOP + LINE_H * 7 + 24
 
 
 def seg(*parts):
@@ -62,12 +62,14 @@ def log_line(ts, marker, marker_col, tag, elapsed, msg, hot=False):
 
 
 # Static lines of the "session".
-# Bare [Start] / [Done] — no tags. The default timer is named "Job".
+# The outer job wraps the inner load/train timers.
 PROMPT = seg(("$ ", GREEN, True), ("python train.py", TEXT, False))
-GO_LOAD   = log_line("12:25:01", "+", GREEN, "Job", None, "Loading dataset...")
-DONE_LOAD = log_line("12:25:03", "-", PEACH, "Job", "2.001s", "Finished loading", hot=True)
-GO_TRAIN  = log_line("12:25:03", "+", GREEN, "Job", None, "Training model...")
-DONE_TRN  = log_line("12:26:27", "-", PEACH, "Job", "1m23.40s", "Finished", hot=True)
+GO_JOB    = log_line("12:25:01", "+", GREEN, "job", None, "Starting training job")
+GO_LOAD   = log_line("12:25:01", "+", GREEN, "load", None, "Loading dataset...")
+DONE_LOAD = log_line("12:25:03", "-", PEACH, "load", "2.001s", "Finished loading", hot=True)
+GO_TRAIN  = log_line("12:25:03", "+", GREEN, "train", None, "Training model...")
+DONE_TRN  = log_line("12:26:27", "-", PEACH, "train", "1m23.40s", "Finished training", hot=True)
+DONE_JOB  = log_line("12:26:27", "-", PEACH, "job", "1m25.40s", "Job complete", hot=True)
 
 SPIN = "|/-\\"
 
@@ -112,35 +114,44 @@ add(draw([PROMPT], cursor=True), hold=4)
 
 shown = [PROMPT]
 
-# 2) data_load starts
+# 2) whole job starts
+shown = shown + [GO_JOB]
+add(draw(shown, cursor=True), hold=3)
+
+# 3) data_load starts
 shown = shown + [GO_LOAD]
 add(draw(shown, cursor=True), hold=3)
 
-# 3) working spinner
+# 4) working spinner
 for k in range(8):
     add(draw(shown, spinner=SPIN[k % 4]))
 
-# 4) data_load done — flash the elapsed time
+# 5) data_load done — flash the elapsed time
 shown = shown + [DONE_LOAD]
 for k in range(4):
-    hot = log_line("12:25:03", "-", PEACH, "Job", "2.001s", "Finished loading", hot=True)
+    hot = log_line("12:25:03", "-", PEACH, "load", "2.001s", "Finished loading", hot=True)
     add(draw(shown[:-1] + [hot], cursor=False), hold=3)
 add(draw(shown, cursor=True), hold=2)
 
-# 5) train starts
+# 6) train starts
 shown = shown + [GO_TRAIN]
 add(draw(shown, cursor=True), hold=3)
 
-# 6) longer spinner
+# 7) longer spinner
 for k in range(12):
     add(draw(shown, spinner=SPIN[k % 4]))
 
-# 7) train done — flash
+# 8) train done — flash
 shown = shown + [DONE_TRN]
 for k in range(5):
     add(draw(shown, cursor=False), hold=3)
 
-# 8) hold final
+# 9) whole job done — flash
+shown = shown + [DONE_JOB]
+for k in range(5):
+    add(draw(shown, cursor=False), hold=3)
+
+# 10) hold final
 add(draw(shown, cursor=True), hold=20)
 
 # expand holds into individual frames
