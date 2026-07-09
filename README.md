@@ -314,6 +314,11 @@ python -m unittest discover
 The suite is dependency-free and mocks `time.perf_counter`, so the timing
 assertions are deterministic (no `sleep`, no flakiness).
 
+## Releasing
+
+Maintainers: see [RELEASING.md](RELEASING.md). Releases publish to PyPI
+automatically via GitHub Actions when a GitHub Release is published.
+
 ## License
 
 [MIT](LICENSE)
