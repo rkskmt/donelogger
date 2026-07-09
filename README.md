@@ -1,5 +1,9 @@
 # donelogger
 
+[![PyPI version](https://img.shields.io/pypi/v/donelogger.svg)](https://pypi.org/project/donelogger/)
+[![Python versions](https://img.shields.io/pypi/pyversions/donelogger.svg)](https://pypi.org/project/donelogger/)
+[![License: MIT](https://img.shields.io/pypi/l/donelogger.svg)](https://github.com/rkskmt/donelogger/blob/main/LICENSE)
+
 **Time long-running steps with two ordinary log lines.**
 
 ![donelogger in action](assets/demo.gif)
@@ -52,6 +56,12 @@ steps, add an optional `:tag` (`[Start:train]` ... `[Done:train]`).
 
 ---
 
+## Installation
+
+```bash
+pip install donelogger
+```
+
 ## Why donelogger?
 
 ### 1. Make timing cheap enough to use everywhere
@@ -75,34 +85,11 @@ logger.info("[Done] Wrote output")
 ```
 
 You get readable progress logs while the job runs, and elapsed times once each
-step finishes.
+step finishes. This pays off most once timings are **nested** — when you want an
+inner step's time *and* the whole job's time without scrolling back up the log to
+subtract two timestamps by hand. (See [nested timing](#named-tags-time-nested-or-overlapping-work).)
 
-### 2. Stop subtracting timestamps by hand
-
-The usual timing pattern is repetitive and easy to get slightly wrong:
-
-```python
-t0 = time.perf_counter()
-logger.info("Loading dataset...")
-load_dataset()
-logger.info(f"Finished loading in {time.perf_counter() - t0:.3f}s")
-```
-
-donelogger keeps the stopwatch attached to the log line instead of your local
-variables:
-
-```python
-logger.info("[Start] Loading dataset...")
-load_dataset()
-logger.info("[Done] Finished loading")
-```
-
-This really pays off once timings are **nested**. You often want an inner step's
-time *and* the whole job's time. By the time the job ends, the start line has
-scrolled far up the log; squinting at two timestamps to subtract them is exactly
-the chore donelogger removes. (See [nested timing](#named-tags-time-nested-or-overlapping-work).)
-
-### 3. Skip the `logging` setup boilerplate
+### 2. Skip the `logging` setup boilerplate
 
 Getting plain `logging` to print the way you want takes a handler, a formatter,
 a level, and a few lines of wiring before a single line shows up:
@@ -133,50 +120,11 @@ Nothing proprietary to learn: it's `logging` underneath, just without the setup.
 
 ## Features
 
-- **Zero-boilerplate timing** — wrap work in `[Start]` / `[Done]` and get the elapsed time for free; no tag required.
-- **One-line setup** — `getLogger()` returns a ready-to-use logger (handler, formatter, and level already wired) — no `logging` boilerplate.
-- **Reads like normal logs** — markers are just text at the front of your message; nothing new to learn.
-- **Named tags** — time overlapping or nested stages independently (`total`, `load`, `train`, …).
-- **Cross-module** — start a timer in one file and finish it in another, as long as they share a logger name.
-- **Human-friendly durations** — adaptive units from microseconds to hours (`300us`, `512.0ms`, `1.003s`, `1m15.40s`, `1h15m00s`), or force fixed seconds.
-- **Drop-in `logging`** — `getLogger()` returns a real `logging.Logger`; all the usual `.info()` / `.warning()` / `.error()` work unchanged.
-- **Optional rotating file log** — one argument enables a `RotatingFileHandler` with a detailed format.
-- **Zero dependencies** — pure standard library, built on `logging.Formatter`.
-
-## Installation
-
-```bash
-pip install git+https://github.com/rkskmt/donelogger.git
-```
-
-Or install locally for development:
-
-```bash
-git clone https://github.com/rkskmt/donelogger.git
-cd donelogger
-pip install -e .
-```
-
-## Quick Start
-
-```python
-import time
-from donelogger import getLogger
-
-logger = getLogger()
-
-# The basics: bare [Start] / [Done], no tag.
-logger.info("[Start] Loading dataset...")
-time.sleep(2)
-logger.info("[Done] Finished loading")
-# -> -[Done Job(2.001s)] Finished loading
-
-# Need to time several things at once? Add an optional tag.
-logger.info("[Start:train] Training model")
-time.sleep(1)
-logger.info("[Done:train]")
-# -> -[Done train(1.002s)]
-```
+- **Zero-boilerplate timing** — wrap work in `[Start]` / `[Done]`; the elapsed time is filled in for you, no tag required.
+- **One-line setup** — `getLogger()` returns a ready-to-use, real `logging.Logger`; `.info()` / `.warning()` / `.error()` and named tags all work unchanged.
+- **Named & cross-module tags** — time nested or overlapping stages independently, even starting in one file and finishing in another.
+- **Human-friendly durations** — adaptive units from microseconds to hours (`300us`, `512.0ms`, `1m15.40s`), or force fixed seconds.
+- **Zero dependencies** — pure standard library, with an optional one-argument rotating file log.
 
 ## Usage
 
