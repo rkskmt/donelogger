@@ -10,6 +10,8 @@ deterministic (no ``sleep`` and no flaky timing assertions).
 
 import io
 import logging
+import os
+import tempfile
 import unittest
 from unittest import mock
 
@@ -83,7 +85,7 @@ class TestPatterns(unittest.TestCase):
 
     def test_start_pattern_rejects(self):
         # Guards the '[S|s]' regression: '|' must NOT be a valid char in the class.
-        for s in ["[Done]", "[|tart]", "[|o]", "normal text", "no brackets"]:
+        for s in ["[Done]", "[|tart]", "[|o]", "[Startfoo]", "normal text", "no brackets"]:
             self.assertIsNone(DoneloggerFormatter.start_pattern.match(s), s)
 
     def test_done_pattern(self):
@@ -96,7 +98,7 @@ class TestPatterns(unittest.TestCase):
         # "[Go:test] comment]" -> only "[Go:test]" matches (non-greedy .*?).
         m = DoneloggerFormatter.start_pattern.match("[Go:test] comment]")
         self.assertEqual(m.group(), "[Go:test]")
-        self.assertEqual(m.group(2), ":test")
+        self.assertEqual(m.group(1), ":test")
 
 
 class TestStartDoneFlow(unittest.TestCase):
@@ -136,6 +138,23 @@ class TestPassthrough(unittest.TestCase):
         f = DoneloggerFormatter("%(message)s")
         self.assertEqual(fmt_msg(f, "just a normal message"), "just a normal message")
 
+    def test_lazy_logging_arguments_are_supported(self):
+        f = DoneloggerFormatter("%(message)s")
+        record = logging.LogRecord(
+            "test", logging.INFO, "x.py", 1, "[Start:%s] processing %s", ("job", "data"), None
+        )
+        self.assertEqual(f.format(record), "+[Go job] processing data")
+
+    def test_format_does_not_mutate_record_for_other_handlers(self):
+        f = DoneloggerFormatter("%(message)s")
+        record = logging.LogRecord(
+            "test", logging.INFO, "x.py", 1, "[Start:%s] processing", ("job",), None
+        )
+        self.assertEqual(f.format(record), "+[Go job] processing")
+        self.assertEqual(record.msg, "[Start:%s] processing")
+        self.assertEqual(record.args, ("job",))
+        self.assertEqual(logging.Formatter("%(message)s").format(record), "[Start:job] processing")
+
 
 class TestInstanceIsolation(unittest.TestCase):
     def test_tag2time_not_shared(self):
@@ -156,6 +175,23 @@ class TestGetLoggerIntegration(unittest.TestCase):
             log.info("[Start:x] a")
             log.info("[Done:x] b")
         out = buf.getvalue()
+        self.assertIn("+[Go x] a", out)
+        self.assertIn("-[Done x(", out)
+
+    def test_file_handler_also_renders_elapsed_time(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logfile = os.path.join(tmpdir, "app.log")
+            with mock.patch("sys.stdout", io.StringIO()):
+                log = getLogger("test_file_logger", logfile=logfile)
+                log.info("[Start:x] a")
+                log.info("[Done:x] b")
+                for handler in log.handlers:
+                    handler.flush()
+            with open(logfile, encoding="utf-8") as f:
+                out = f.read()
+            for handler in list(log.handlers):
+                log.removeHandler(handler)
+                handler.close()
         self.assertIn("+[Go x] a", out)
         self.assertIn("-[Done x(", out)
 

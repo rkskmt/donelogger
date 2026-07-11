@@ -4,22 +4,21 @@ from logging.handlers import RotatingFileHandler
 import sys
 import re
 import threading
+from copy import copy
 from typing import Optional
 
 
 class DoneloggerStreamHandler(logging.StreamHandler):
 
     def emit(self, record: logging.LogRecord) -> None:
-        msg = str(record.__dict__.get("msg", ""))  # msg might be an error object
         self.terminator = '\n'
         super().emit(record)
-        self.flush()  # Add this line to flush after each log message    
     
 
 class DoneloggerFormatter(logging.Formatter):
 
-    start_pattern = re.compile(r"^\[([Ss]tart|[Gg]o)(:?.*?)\]")
-    done_pattern = re.compile(r"^\[[Dd]one(:?.*?)\]")
+    start_pattern = re.compile(r"^\[(?:start|go)(:[^\]]*)?\]", re.IGNORECASE)
+    done_pattern = re.compile(r"^\[done(:[^\]]*)?\]", re.IGNORECASE)
     default_job_name = "Job"
 
     def __init__(self, *args, elapsed_style: str = "adaptive", **kwargs):
@@ -27,6 +26,7 @@ class DoneloggerFormatter(logging.Formatter):
         # standard args (fmt/datefmt/style/validate) still flow to super().
         super().__init__(*args, **kwargs)
         self.tag2time = {}  # per-instance: tags are not shared across loggers
+        self._timer_lock = threading.RLock()
         if elapsed_style not in ("adaptive", "seconds"):
             raise ValueError(f"elapsed_style must be 'adaptive' or 'seconds', got {elapsed_style!r}")
         self.elapsed_style = elapsed_style
@@ -50,29 +50,43 @@ class DoneloggerFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
 
-        if record.__dict__["levelname"] != "INFO":
+        if record.levelno != logging.INFO:
             return super().format(record)
 
-        msg = str(record.__dict__.get("msg", ""))  # msg might be error object
+        # Expand logging's lazy %-arguments before inspecting markers. Work on a
+        # shallow copy so this formatter cannot affect other handlers attached
+        # to the same logger.
+        msg = record.getMessage()
 
         start = self.start_pattern.match(msg)
         if start:
-            tag = start.group(2)[1:] if len(start.group(2)) != 0 else self.default_job_name
-            self.tag2time[tag] = time.perf_counter()
-            record.__dict__["msg"] = "+[Go {}] {}".format(tag, msg[len(start.group()):].strip())
+            tag_suffix = start.group(1)
+            tag = tag_suffix[1:] if tag_suffix is not None else self.default_job_name
+            with self._timer_lock:
+                self.tag2time[tag] = time.perf_counter()
+            rendered_msg = "+[Go {}] {}".format(tag, msg[len(start.group()):].strip())
         else:
             done = self.done_pattern.match(msg)
             if done:
-                tag = done.groups()[0][1:] if len(done.groups()[0]) != 0 else self.default_job_name
-                if tag in self.tag2time:
-                    dt = time.perf_counter() - self.tag2time[tag]
+                tag_suffix = done.group(1)
+                tag = tag_suffix[1:] if tag_suffix is not None else self.default_job_name
+                with self._timer_lock:
+                    started_at = self.tag2time.get(tag)
+                if started_at is not None:
+                    dt = time.perf_counter() - started_at
                     elapsed = self._format_elapsed(dt)
-                    record.__dict__["msg"] = "-[Done {}({})] {}".format(tag, elapsed, msg[len(done.group()):].strip())
+                    rendered_msg = "-[Done {}({})] {}".format(tag, elapsed, msg[len(done.group()):].strip())
                 else:
-                    record.__dict__["msg"] = f"*LOG ERROR* ({tag} is not started) {self.tag2time}"
-            # else: not a start/done line — leave record.msg unchanged
+                    with self._timer_lock:
+                        active_timers = dict(self.tag2time)
+                    rendered_msg = f"*LOG ERROR* ({tag} is not started) {active_timers}"
+            else:
+                return super().format(record)
 
-        return super().format(record)
+        formatted_record = copy(record)
+        formatted_record.msg = rendered_msg
+        formatted_record.args = ()
+        return super().format(formatted_record)
 
 class LoggerManager:
     _instance = None
@@ -104,7 +118,7 @@ class LoggerManager:
         # ハンドラーの設定
         self._setup_stream_handler(logger, fmt, datefmt, elapsed_style)
         if logfile:
-            self._setup_file_handler(logger, logfile)
+            self._setup_file_handler(logger, logfile, elapsed_style)
 
         self._initialized_logger_name2instance[name] = logger
         return logger
@@ -115,10 +129,13 @@ class LoggerManager:
         dlsh.setFormatter(dllf)
         logger.addHandler(dlsh)
 
-    def _setup_file_handler(self, logger, logfile: str):
+    def _setup_file_handler(self, logger, logfile: str, elapsed_style="adaptive"):
         fh = RotatingFileHandler(logfile, maxBytes=1000000, backupCount=2, encoding='utf-8')
         fh.setLevel(logging.DEBUG)
-        fh_formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s %(name)s %(funcName)s %(message)s')
+        fh_formatter = DoneloggerFormatter(
+            '%(asctime)s %(levelname)s %(filename)s %(name)s %(funcName)s %(message)s',
+            elapsed_style=elapsed_style,
+        )
         fh.setFormatter(fh_formatter)
         logger.addHandler(fh)
 

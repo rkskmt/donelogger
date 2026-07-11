@@ -208,7 +208,7 @@ touched.)
 
 ```python
 logger = getLogger(elapsed_style="adaptive")  # 300us, 512.0ms, 1.003s, 1m15.40s, 1h15m00s
-logger = getLogger(elapsed_style="seconds")   # always seconds: 0.300s, 0.512s, 1.003s, 75.400s
+logger = getLogger(elapsed_style="seconds")   # fixed 3 decimals: 0.300s, 1.003s, 1m15.400s
 ```
 
 ### File logging
@@ -268,7 +268,8 @@ logger = getLogger(
 | 75.4 s | `1m15.40s` |
 | 4500 s | `1h15m00s` |
 
-**`seconds`** always uses seconds (handy when you post-process logs):
+**`seconds`** uses fixed three-decimal second precision (handy when you
+post-process logs), while still grouping durations of a minute or more:
 
 | Duration | Rendered |
 |---|---|
@@ -281,7 +282,9 @@ logger = getLogger(
 ### `getLogger(name="doneLogger", logLevel=logging.INFO, logfile=None, fmt=..., datefmt=..., elapsed_style="adaptive")`
 
 Returns a configured `logging.Logger`. Calling it again with the same `name`
-returns the cached instance (so configuration only happens once).
+returns the cached instance (so configuration only happens once). Configure a
+named logger at your entry point before retrieving it from other modules; later
+calls intentionally preserve the first call's configuration.
 
 | Parameter | Default | Description |
 |---|---|---|
@@ -290,7 +293,7 @@ returns the cached instance (so configuration only happens once).
 | `logfile` | `None` | If set, also log to this file via a rotating handler (1 MB × 2 backups). |
 | `fmt` | `%(asctime)s\|%(levelname)s\|%(message)s` | Console log format (standard `logging` format string). |
 | `datefmt` | `%d/%m/%Y %H:%M:%S` | Timestamp format. |
-| `elapsed_style` | `"adaptive"` | `"adaptive"` (µs→h) or `"seconds"` (always seconds). |
+| `elapsed_style` | `"adaptive"` | `"adaptive"` (µs→h) or `"seconds"` (fixed three-decimal second precision). |
 
 The package also exposes `DoneloggerFormatter`, `DoneloggerStreamHandler`, and
 `LoggerManager` for advanced/custom wiring. `DoneloggerFormatter` is a drop-in
@@ -300,10 +303,12 @@ work), with one extra keyword-only argument, `elapsed_style`.
 ## How it works
 
 donelogger installs a custom `logging.Formatter` that inspects each `INFO`
-message. A `[Start]`/`[Go]` marker records `time.perf_counter()` under the tag;
-the matching `[Done]` looks it up, computes the delta, and rewrites the line
-with the elapsed time. Because it's all in the formatter, your call sites stay
-plain `logger.info(...)` calls and non-marker logging is unaffected.
+message. A `[Start]`/`[Go]` marker records `time.perf_counter()` in the
+formatter attached to that logger; the matching `[Done]` looks it up, computes
+the delta, and renders the line with the elapsed time. The original log record
+is left untouched, so other handlers can format it independently. Because the
+timing behavior is in the formatter, your call sites stay plain
+`logger.info(...)` calls and non-marker logging is unaffected.
 
 ## Testing
 

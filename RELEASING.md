@@ -11,7 +11,7 @@ uploads it. The workflow lives at
 1. **Bump the version** in [pyproject.toml](pyproject.toml):
 
    ```toml
-   version = "0.1.9"
+   version = "0.1.10"
    ```
 
    Follow [semantic versioning](https://semver.org/): patch for fixes, minor for
@@ -20,20 +20,20 @@ uploads it. The workflow lives at
 2. **Commit and push** to `main`:
 
    ```bash
-   git commit -am "Release 0.1.9"
+   git commit -am "Release 0.1.10"
    git push origin main
    ```
 
 3. **Create a GitHub Release** with a tag that matches the version:
 
    - GitHub → **Releases** → **Draft a new release**
-   - Tag: `v0.1.9` (create it on publish)
+   - Tag: `v0.1.10` (create it on publish)
    - Write short release notes, then **Publish release**.
 
    Or from the CLI:
 
    ```bash
-   gh release create v0.1.9 --generate-notes
+   gh release create v0.1.10 --generate-notes
    ```
 
 4. **Watch it publish.** The **Actions** tab shows the *Publish to PyPI* run.
@@ -47,8 +47,8 @@ That's it — no `twine`, no token, no manual upload.
 - **Bump the version first.** PyPI refuses to accept a version that already
   exists, so a forgotten bump makes the Actions run fail (red). Bump, then
   release.
-- **Tag = version.** Keep the release tag (`v0.1.9`) in sync with
-  `pyproject.toml` (`0.1.9`) so the published artifact matches the tag.
+- **Tag = version.** Keep the release tag (`v0.1.10`) in sync with
+  `pyproject.toml` (`0.1.10`) so the published artifact matches the tag.
 - **README images must use absolute URLs.** PyPI renders the README standalone,
   so relative paths like `assets/demo.gif` break there. Use the full
   `https://raw.githubusercontent.com/rkskmt/donelogger/main/...` form.
