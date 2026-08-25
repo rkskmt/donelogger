@@ -196,5 +196,76 @@ class TestGetLoggerIntegration(unittest.TestCase):
         self.assertIn("-[Done x(", out)
 
 
+class TestLaterCallsApplySettings(unittest.TestCase):
+    """The logger is shared per name, so the entry point usually calls
+    getLogger() after imported modules already created it with defaults.
+    Explicit settings on those later calls must take effect."""
+
+    @staticmethod
+    def _close(log):
+        for handler in list(log.handlers):
+            log.removeHandler(handler)
+            handler.close()
+
+    def test_logfile_on_later_call_adds_file_handler_once(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logfile = os.path.join(tmpdir, "later.log")
+            with mock.patch("sys.stdout", io.StringIO()):
+                first = getLogger("test_later_logfile")  # as an imported module would
+                second = getLogger("test_later_logfile", logfile=logfile)
+                third = getLogger("test_later_logfile", logfile=logfile)
+                self.assertIs(first, second)
+                self.assertIs(second, third)
+                file_handlers = [h for h in first.handlers if isinstance(h, logging.FileHandler)]
+                self.assertEqual(len(file_handlers), 1)
+                first.info("[Start:x] a")
+                first.info("[Done:x] b")
+                for handler in first.handlers:
+                    handler.flush()
+            with open(logfile, encoding="utf-8") as f:
+                out = f.read()
+            self._close(first)
+        self.assertIn("+[Go x] a", out)
+        self.assertIn("-[Done x(", out)
+        self.assertEqual(out.count("+[Go x] a"), 1)
+
+    def test_file_attached_after_start_still_reports_elapsed(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logfile = os.path.join(tmpdir, "late.log")
+            with mock.patch("sys.stdout", io.StringIO()):
+                log = getLogger("test_late_attach")
+                log.info("[Start:x] a")
+                getLogger("test_late_attach", logfile=logfile)
+                log.info("[Done:x] b")
+                for handler in log.handlers:
+                    handler.flush()
+            with open(logfile, encoding="utf-8") as f:
+                out = f.read()
+            self._close(log)
+        self.assertIn("-[Done x(", out)
+        self.assertNotIn("*LOG ERROR*", out)
+
+    def test_later_explicit_level_overrides_and_omitted_keeps(self):
+        with mock.patch("sys.stdout", io.StringIO()):
+            log = getLogger("test_later_level")
+            self.assertEqual(log.level, logging.INFO)
+            getLogger("test_later_level", logLevel=logging.DEBUG)
+            self.assertEqual(log.level, logging.DEBUG)
+            getLogger("test_later_level")
+            self.assertEqual(log.level, logging.DEBUG)
+        self._close(log)
+
+    def test_later_elapsed_style_applies_and_keeps_running_timers(self):
+        buf = io.StringIO()
+        with mock.patch("sys.stdout", buf):
+            log = getLogger("test_later_style", fmt="%(message)s")
+            with mock.patch.object(dl.time, "perf_counter", side_effect=[100.0, 175.4]):
+                log.info("[Start:x] a")
+                getLogger("test_later_style", elapsed_style="seconds")
+                log.info("[Done:x] b")
+        self._close(log)
+        self.assertIn("-[Done x(1m15.400s)] b", buf.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

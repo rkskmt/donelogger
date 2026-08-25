@@ -188,6 +188,14 @@ getLogger().info("[Done:pipeline] Pipeline complete")
 Loggers created with **different names keep independent timers**, so unrelated
 components never clobber each other's tags.
 
+Because the logger is shared, the first `getLogger()` call is usually made by an
+imported module with the defaults, not by your entry point. Explicit settings
+are therefore applied on **every** call, not only the creating one: a later
+`getLogger(logfile=...)` adds the file handler (once per path), and a later
+`logLevel` / `fmt` / `datefmt` / `elapsed_style` replaces the current value.
+Omitted arguments leave the existing configuration untouched, so plain
+`getLogger()` calls in other modules never reset what the entry point set.
+
 ### Regular logging
 
 Everything that isn't a marker passes straight through — donelogger is a normal
@@ -219,6 +227,10 @@ detailed, machine-friendly format:
 ```python
 logger = getLogger(name="myapp", logfile="app.log")
 ```
+
+This can come from the entry point after other modules already created the
+logger; the file is attached to the shared logger, so their output lands in it
+too. Asking twice for the same path attaches it once.
 
 ### Full configuration
 

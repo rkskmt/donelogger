@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "donelogger"
-version = "0.1.10"
+version = "0.1.11"
 description = "Time long-running steps with two ordinary log lines: write [Start] and [Done], get the elapsed time filled in for you."
 readme = "README.md"
 requires-python = ">=3.7"
